@@ -49,11 +49,6 @@ export default function Footer() {
           <h4 className="text-xs uppercase tracking-widest font-bold text-[#1a1c1a] mb-2 font-sans">Entreprise</h4>
           <ul className="space-y-4">
             <li>
-              <Link href="/about" className="text-sm text-[#4e453a] hover:text-[#775928] transition-colors">
-                Notre Histoire
-              </Link>
-            </li>
-            <li>
               <Link href="/studio" className="text-sm text-[#4e453a] hover:text-[#775928] transition-colors">
                 Studio Artisanal
               </Link>

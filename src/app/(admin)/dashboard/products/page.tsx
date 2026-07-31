@@ -51,7 +51,7 @@ export default function ProductsPage() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
-  const [viewMode, setViewMode] = useState<'table' | 'grid'>('table');
+  const [viewMode, setViewMode] = useState<'table' | 'grid'>('grid');
   const limit = 12;
 
   // Toast State
@@ -88,6 +88,26 @@ export default function ProductsPage() {
   const [sizeInput, setSizeInput] = useState('');
   
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const addUniqueValue = (values: string[], nextValue: string) => {
+    const value = nextValue.trim();
+    if (!value || values.includes(value)) return values;
+    return [...values, value];
+  };
+
+  const addColor = () => {
+    const value = colorInput.trim();
+    if (!value) return;
+    setFormData(prev => ({ ...prev, colors: addUniqueValue(prev.colors, value) }));
+    setColorInput('');
+  };
+
+  const addSize = () => {
+    const value = sizeInput.trim();
+    if (!value) return;
+    setFormData(prev => ({ ...prev, sizes: addUniqueValue(prev.sizes, value) }));
+    setSizeInput('');
+  };
 
   // Delete State
   const [deletingId, setDeletingId] = useState<number | null>(null);
@@ -260,9 +280,15 @@ export default function ProductsPage() {
     e.preventDefault();
     setIsSubmitting(true);
     try {
-      const payload = {
+      const completedFormData = {
         ...formData,
-        category_id: formData.category_id === '' ? null : Number(formData.category_id),
+        colors: addUniqueValue(formData.colors, colorInput),
+        sizes: addUniqueValue(formData.sizes, sizeInput),
+      };
+
+      const payload = {
+        ...completedFormData,
+        category_id: completedFormData.category_id === '' ? null : Number(completedFormData.category_id),
         images: formImages.map((img, idx) => ({
           ...img,
           is_primary: formImages.some(image => image.is_primary) ? img.is_primary : idx === 0,
@@ -575,7 +601,7 @@ export default function ProductsPage() {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-[#111827] mb-1">Price (DZD)</label>
                   <input
@@ -614,9 +640,9 @@ export default function ProductsPage() {
                 </select>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-[#111827] mb-1">Colors (Press Enter to add)</label>
+                  <label className="block text-sm font-medium text-[#111827] mb-1">Colors</label>
                   <div className="flex flex-wrap gap-2 mb-2">
                     {formData.colors.map(color => (
                       <span key={color} className="bg-[#F8F9FA] border border-[#E5E7EB] text-xs px-2 py-1 rounded flex items-center gap-1">
@@ -625,27 +651,34 @@ export default function ProductsPage() {
                       </span>
                     ))}
                   </div>
-                  <input
-                    type="text"
-                    value={colorInput}
-                    onChange={(e) => setColorInput(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        e.preventDefault();
-                        const val = colorInput.trim();
-                        if (val && !formData.colors.includes(val)) {
-                          setFormData(prev => ({ ...prev, colors: [...prev.colors, val] }));
-                          setColorInput('');
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={colorInput}
+                      onChange={(e) => setColorInput(e.target.value)}
+                      onBlur={addColor}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          addColor();
                         }
-                      }
-                    }}
-                    placeholder="e.g. Noir, Beige..."
-                    className="w-full border border-[#E5E7EB] rounded-[6px] px-3 py-2 text-sm text-[#111827] outline-none focus:border-[#6366F1] focus:ring-1 focus:ring-[#6366F1]"
-                  />
+                      }}
+                      placeholder="e.g. Noir, Beige..."
+                      className="min-w-0 flex-1 border border-[#E5E7EB] rounded-[6px] px-3 py-2 text-sm text-[#111827] outline-none focus:border-[#6366F1] focus:ring-1 focus:ring-[#6366F1]"
+                    />
+                    <button
+                      type="button"
+                      onClick={addColor}
+                      disabled={!colorInput.trim()}
+                      className="shrink-0 border border-[#E5E7EB] text-[#111827] rounded-[6px] px-3 py-2 text-sm font-medium hover:bg-[#F8F9FA] focus:outline-none focus:ring-2 focus:ring-[#6366F1]/30 disabled:opacity-50 disabled:hover:bg-transparent"
+                    >
+                      Add
+                    </button>
+                  </div>
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-[#111827] mb-1">Sizes (Press Enter to add)</label>
+                  <label className="block text-sm font-medium text-[#111827] mb-1">Sizes</label>
                   <div className="flex flex-wrap gap-2 mb-2">
                     {formData.sizes.map(size => (
                       <span key={size} className="bg-[#F8F9FA] border border-[#E5E7EB] text-xs px-2 py-1 rounded flex items-center gap-1">
@@ -654,23 +687,30 @@ export default function ProductsPage() {
                       </span>
                     ))}
                   </div>
-                  <input
-                    type="text"
-                    value={sizeInput}
-                    onChange={(e) => setSizeInput(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        e.preventDefault();
-                        const val = sizeInput.trim();
-                        if (val && !formData.sizes.includes(val)) {
-                          setFormData(prev => ({ ...prev, sizes: [...prev.sizes, val] }));
-                          setSizeInput('');
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={sizeInput}
+                      onChange={(e) => setSizeInput(e.target.value)}
+                      onBlur={addSize}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          addSize();
                         }
-                      }
-                    }}
-                    placeholder="e.g. S, M, L..."
-                    className="w-full border border-[#E5E7EB] rounded-[6px] px-3 py-2 text-sm text-[#111827] outline-none focus:border-[#6366F1] focus:ring-1 focus:ring-[#6366F1]"
-                  />
+                      }}
+                      placeholder="e.g. S, M, L..."
+                      className="min-w-0 flex-1 border border-[#E5E7EB] rounded-[6px] px-3 py-2 text-sm text-[#111827] outline-none focus:border-[#6366F1] focus:ring-1 focus:ring-[#6366F1]"
+                    />
+                    <button
+                      type="button"
+                      onClick={addSize}
+                      disabled={!sizeInput.trim()}
+                      className="shrink-0 border border-[#E5E7EB] text-[#111827] rounded-[6px] px-3 py-2 text-sm font-medium hover:bg-[#F8F9FA] focus:outline-none focus:ring-2 focus:ring-[#6366F1]/30 disabled:opacity-50 disabled:hover:bg-transparent"
+                    >
+                      Add
+                    </button>
+                  </div>
                 </div>
               </div>
 
