@@ -65,8 +65,6 @@ export default function Navbar() {
 
   const navLinks = [
     { label: 'COLLECTIONS', href: '/products' },
-    { label: 'NOUVEAUTÉS', href: '/products?badge=new' },
-    { label: 'NOTRE HISTOIRE', href: '/about' },
   ];
 
   return (

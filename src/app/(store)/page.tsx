@@ -11,6 +11,7 @@ const BODA = "'Bodoni Moda', Georgia, serif";
 
 const LABEL: React.CSSProperties = { fontFamily: DM,   fontSize: '12px', fontWeight: 700, letterSpacing: '0.10em' };
 const BODY:  React.CSSProperties = { fontFamily: DM,   fontSize: '16px', fontWeight: 400, lineHeight: '1.5' };
+const HERO_IMAGE_URL = '/kaftan-hero.jpg';
 
 /* ── Scroll reveal hook ── */
 function useReveal() {
@@ -39,9 +40,9 @@ const CATEGORY_CARDS = [
 ];
 
 const STORY_BLOCKS = [
-  { label: '2019',          desc: 'Fondé à Alger' },
+  { label: '2025',          desc: 'Fondé à Alger' },
   { label: '100%',          desc: 'Matériaux éthiques' },
-  { label: '48',            desc: 'Wilayas desservies' },
+  { label: '58',            desc: 'Wilayas desservies' },
   { label: 'Artisanal',     desc: 'Fait main avec passion' },
 ];
 
@@ -102,12 +103,12 @@ export default function StoreHome() {
         {/* Background image - Mobile (Original) */}
         <div
           className="absolute inset-0 bg-cover bg-center block md:hidden"
-          style={{ backgroundImage: `url('https://lh3.googleusercontent.com/aida-public/AB6AXuDg1Y6oLhRWSHVl5z4J_1-dJy3zr4o42FDKCExrfEtAtrPEvp6PCtLa_kB0xb0NGOnq8g_Axq5lUtPbee2WlfXL75teN3NiQyhNZbudM4FtPeCmNb4sBxvS-Xyq8pucvl8X61qQSH8tJZuEYG7ekXnL9JburouqdaFAke9cVDOo3u9mlyetyX5bgOsI37nLlGTc_V_l_wbaB_Qqpr1hucyzP8awMQF2sLtkIaRHg380jZ-MzwlXuF5g')` }}
+          style={{ backgroundImage: `url('${HERO_IMAGE_URL}')` }}
         />
-        {/* Background image - Desktop (New Illustration) */}
+        {/* Background image - Desktop */}
         <div
           className="absolute inset-0 bg-cover bg-center hidden md:block"
-          style={{ backgroundImage: `url('https://lh3.googleusercontent.com/aida/AP1WRLts0cPF955FYCE0BVLh_QOXJE19eHd3fe5U6Yu89MqtXe-BdYUtSEvF8QxZURRHhCMc8FkJHCIFXLmYjJfae2nBwm-EpJFwhxohmjIVowP9uUVAAy6Bpp8pUguJlf7DXKQWvYo0ZErcdFLdqGwFK1-wNAjrK_Yy2bK-KHNLA0PIQgKbDAeJiBNLE3WLSWKOa0paJ3EnY25o3vIt4_usMAQHT8thO4i6Z4WKAOThBNW6GoW9ZOhio-4eDVA')` }}
+          style={{ backgroundImage: `url('${HERO_IMAGE_URL}')` }}
         />
         <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent md:bg-[#1a1c1a]/25" />
 
