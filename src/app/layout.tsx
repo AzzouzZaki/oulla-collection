@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Bodoni_Moda, DM_Sans } from "next/font/google";
+import { Analytics } from '@vercel/analytics/next';
 import "./globals.css";
 
 const bodoniModa = Bodoni_Moda({
@@ -30,7 +31,10 @@ export default function RootLayout({
       suppressHydrationWarning
       className={`${bodoniModa.variable} ${dmSans.variable} h-full antialiased`}
     >
-      <body suppressHydrationWarning className="min-h-full flex flex-col bg-[#faf9f6] text-[#1a1c1a] font-sans">{children}</body>
+      <body suppressHydrationWarning className="min-h-full flex flex-col bg-[#faf9f6] text-[#1a1c1a] font-sans">
+        {children}
+        <Analytics />
+      </body>
     </html>
   );
 }
