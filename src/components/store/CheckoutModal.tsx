@@ -13,25 +13,29 @@ interface Props {
   open: boolean;
   onClose: () => void;
   total: string;
+  totalAmount: number;
   orderItems?: { product_id: number; quantity: number }[];
 }
 
-const WILAYAT = [
-  'Adrar','Chlef','Laghouat','Oum El Bouaghi','Batna','Béjaïa','Biskra',
-  'Béchar','Blida','Bouira','Tamanrasset','Tébessa','Tlemcen','Tiaret',
-  'Tizi Ouzou','Algiers','Djelfa','Jijel','Sétif','Saïda','Skikda',
-  'Sidi Bel Abbès','Annaba','Guelma','Constantine','Médéa','Mostaganem',
-  "M'Sila",'Mascara','Ouargla','Oran','El Bayadh','Illizi','Bordj Bou Arréridj',
-  'Boumerdès','El Tarf','Tindouf','Tissemsilt','El Oued','Khenchela',
-  'Souk Ahras','Tipaza','Mila','Aïn Defla','Naâma','Aïn Témouchent',
-  'Ghardaïa','Relizane',
-];
 
-export default function CheckoutModal({ open, onClose, total, orderItems }: Props) {
+
+export default function CheckoutModal({ open, onClose, total, totalAmount, orderItems }: Props) {
   const overlayRef = useRef<HTMLDivElement>(null);
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  const [wilayas, setWilayas] = useState<{wilaya_id:number, wilaya_name:string}[]>([]);
+  const [wilayasLoading, setWilayasLoading] = useState(true);
+  const [wilayasError, setWilayasError] = useState(false);
+  const [selectedWilayaId, setSelectedWilayaId] = useState<number | ''>('');
+  const [fees, setFees] = useState<{home:number, desk:number|null} | null>(null);
+  const [feesLoading, setFeesLoading] = useState(false);
+  const [feesError, setFeesError] = useState(false);
+
+  const [deliveryType, setDeliveryType] = useState<'home' | 'desk'>('home');
+  const [stopDesks, setStopDesks] = useState<string[]>([]);
+  const [desksLoading, setDesksLoading] = useState(false);
 
   const [formData, setFormData] = useState({
     customer_name: '',
@@ -55,6 +59,82 @@ export default function CheckoutModal({ open, onClose, total, orderItems }: Prop
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
   }, [onClose]);
+
+  useEffect(() => {
+    if (!open) return;
+    setWilayasLoading(true);
+    setWilayasError(false);
+    fetch('/api/wilayas')
+      .then(r => {
+        if (!r.ok) throw new Error('Failed');
+        return r.json();
+      })
+      .then(data => {
+        setWilayas(data);
+      })
+      .catch(e => {
+        console.error(e);
+        setWilayasError(true);
+      })
+      .finally(() => {
+        setWilayasLoading(false);
+      });
+  }, [open]);
+
+  const handleWilayaChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const val = e.target.value;
+    if (!val) {
+      setSelectedWilayaId('');
+      setFormData({ ...formData, wilaya: '' });
+      setFees(null);
+      setFeesError(false);
+      return;
+    }
+
+    const wId = parseInt(val, 10);
+    setSelectedWilayaId(wId);
+    
+    const wObj = wilayas.find(w => w.wilaya_id === wId);
+    if (wObj) {
+      setFormData({ ...formData, wilaya: wObj.wilaya_name });
+    }
+
+    setFeesLoading(true);
+    setFees(null);
+    setFeesError(false);
+
+    try {
+      const res = await fetch(`/api/shipping-fees?wilaya_id=${wId}`);
+      if (!res.ok) throw new Error('Failed');
+      const data = await res.json();
+      setFees(data);
+      
+      if (data.desk !== null) {
+        setDesksLoading(true);
+        setDeliveryType('home');
+        fetch(`/api/communes?wilaya_id=${wId}`)
+          .then(r => r.ok ? r.json() : [])
+          .then(desks => {
+            setStopDesks(desks);
+            if (desks.length === 1) {
+              setFormData(prev => ({ ...prev, city: desks[0] }));
+            } else {
+              setFormData(prev => ({ ...prev, city: '' }));
+            }
+          })
+          .catch(console.error)
+          .finally(() => setDesksLoading(false));
+      } else {
+        setDeliveryType('home');
+        setStopDesks([]);
+        setFormData(prev => ({ ...prev, city: '' }));
+      }
+    } catch (err) {
+      setFeesError(true);
+    } finally {
+      setFeesLoading(false);
+    }
+  };
 
   if (!open) return null;
 
@@ -233,51 +313,130 @@ export default function CheckoutModal({ open, onClose, total, orderItems }: Prop
                     className="border-b border-[#d1c5b6]/40 pb-2">
                     Adresse de Livraison
                   </p>
-                  
+
+                  {/* Wilaya select */}
                   <div className="space-y-1">
-                    <label style={{ ...LABEL, fontSize: '13px', color: '#4e453a' }}>Adresse *</label>
-                    <input
-                      type="text"
-                      required
-                      placeholder="Numéro et nom de rue"
-                      value={formData.address_line}
-                      onChange={(e) => setFormData({ ...formData, address_line: e.target.value })}
-                      style={{ ...BODY, color: '#1a1c1a' }}
-                      className="w-full border border-[#d1c5b6] bg-transparent px-4 py-3 focus:border-[#775928] focus:outline-none focus:ring-0 transition-colors"
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-1">
-                      <label style={{ ...LABEL, fontSize: '13px', color: '#4e453a' }}>Ville / Commune</label>
-                      <input
-                        type="text"
-                        placeholder="Nom de la ville"
-                        value={formData.city}
-                        onChange={(e) => setFormData({ ...formData, city: e.target.value })}
-                        style={{ ...BODY, color: '#1a1c1a' }}
-                        className="w-full border border-[#d1c5b6] bg-transparent px-4 py-3 focus:border-[#775928] focus:outline-none focus:ring-0 transition-colors"
-                      />
-                    </div>
-
-                    {/* Wilaya select */}
-                    <div className="space-y-1">
-                      <label style={{ ...LABEL, fontSize: '13px', color: '#4e453a' }}>Wilaya *</label>
+                    <label style={{ ...LABEL, fontSize: '13px', color: '#4e453a' }}>Wilaya *</label>
+                    {wilayasLoading ? (
+                      <div className="w-full h-[50px] border border-[#d1c5b6] bg-[#efeeeb] animate-pulse"></div>
+                    ) : wilayasError ? (
+                      <div className="w-full text-xs text-[#ba1a1a] py-2">Impossible de charger les wilayas</div>
+                    ) : (
                       <select
                         required
-                        value={formData.wilaya}
-                        onChange={(e) => setFormData({ ...formData, wilaya: e.target.value })}
+                        value={selectedWilayaId}
+                        onChange={handleWilayaChange}
                         style={{ ...BODY, color: '#1a1c1a' }}
                         className="w-full border border-[#d1c5b6] bg-transparent px-4 py-3 focus:border-[#775928] focus:outline-none focus:ring-0 transition-colors"
                       >
                         <option value="">Sélectionner…</option>
-                        {WILAYAT.map((w) => (
-                          <option key={w} value={w}>{w}</option>
+                        {wilayas.map((w) => (
+                          <option key={w.wilaya_id} value={w.wilaya_id}>{w.wilaya_name}</option>
                         ))}
                       </select>
-                    </div>
+                    )}
                   </div>
 
+                  {/* Loading / Error for fees */}
+                  {(feesLoading || feesError) && (
+                    <div className="mt-2 pl-3 border-l-2 border-[#d1c5b6] space-y-1">
+                      {feesLoading && (
+                        <div style={{ fontFamily: DM, fontSize: '13px', fontStyle: 'italic', color: '#5f5e5e' }}>
+                          Calcul des frais...
+                        </div>
+                      )}
+                      {feesError && (
+                        <div style={{ fontFamily: DM, fontSize: '12px', color: '#ba1a1a' }}>
+                          Impossible de récupérer les frais de livraison
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Delivery Type Choice (only if desk is available) */}
+                  {fees && !feesLoading && !feesError && fees.desk !== null && (
+                    <div className="space-y-2 mt-4">
+                      <label style={{ ...LABEL, fontSize: '13px', color: '#4e453a' }}>Mode de Livraison *</label>
+                      <div className="grid grid-cols-2 gap-4">
+                        <label className={`border ${deliveryType === 'home' ? 'border-[#775928] bg-[#775928]/5' : 'border-[#d1c5b6] opacity-70'} flex items-center justify-center py-3 cursor-pointer transition-colors`}>
+                          <input type="radio" name="deliveryType" value="home" checked={deliveryType === 'home'} onChange={() => setDeliveryType('home')} className="hidden" />
+                          <div className="text-center">
+                            <div style={{ ...LABEL, color: deliveryType === 'home' ? '#775928' : '#4e453a' }}>À Domicile</div>
+                            <div style={{ fontFamily: DM, fontSize: '13px', color: '#1a1c1a' }}>{fees.home} DZD</div>
+                          </div>
+                        </label>
+                        <label className={`border ${deliveryType === 'desk' ? 'border-[#775928] bg-[#775928]/5' : 'border-[#d1c5b6] opacity-70'} flex items-center justify-center py-3 cursor-pointer transition-colors`}>
+                          <input type="radio" name="deliveryType" value="desk" checked={deliveryType === 'desk'} onChange={() => setDeliveryType('desk')} className="hidden" />
+                          <div className="text-center">
+                            <div style={{ ...LABEL, color: deliveryType === 'desk' ? '#775928' : '#4e453a' }}>Point Relais</div>
+                            <div style={{ fontFamily: DM, fontSize: '13px', color: '#1a1c1a' }}>{fees.desk} DZD</div>
+                          </div>
+                        </label>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Delivery Type Choice fallback (only home available) */}
+                  {fees && !feesLoading && !feesError && fees.desk === null && (
+                     <div className="mt-2 pl-3 border-l-2 border-[#775928] space-y-1">
+                        <div style={{ fontFamily: DM, fontSize: '14px', color: '#4e453a', lineHeight: '1.4' }}>
+                          Livraison à domicile : <span style={{ fontWeight: 700, color: '#1a1c1a' }}>{fees.home} DZD</span>
+                        </div>
+                     </div>
+                  )}
+
+                  {/* Conditional Address Fields */}
+                  {deliveryType === 'home' ? (
+                    <>
+                      <div className="space-y-1 mt-4">
+                        <label style={{ ...LABEL, fontSize: '13px', color: '#4e453a' }}>Adresse Complète *</label>
+                        <input
+                          type="text"
+                          required
+                          placeholder="Numéro et nom de rue"
+                          value={formData.address_line}
+                          onChange={(e) => setFormData({ ...formData, address_line: e.target.value })}
+                          style={{ ...BODY, color: '#1a1c1a' }}
+                          className="w-full border border-[#d1c5b6] bg-transparent px-4 py-3 focus:border-[#775928] focus:outline-none focus:ring-0 transition-colors"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label style={{ ...LABEL, fontSize: '13px', color: '#4e453a' }}>Ville / Commune</label>
+                        <input
+                          type="text"
+                          placeholder="Nom de la ville"
+                          value={formData.city}
+                          onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+                          style={{ ...BODY, color: '#1a1c1a' }}
+                          className="w-full border border-[#d1c5b6] bg-transparent px-4 py-3 focus:border-[#775928] focus:outline-none focus:ring-0 transition-colors"
+                        />
+                      </div>
+                    </>
+                  ) : (
+                    <div className="space-y-1 mt-4">
+                      <label style={{ ...LABEL, fontSize: '13px', color: '#4e453a' }}>Point Relais (Stop Desk) *</label>
+                      {desksLoading ? (
+                        <div className="w-full h-[50px] border border-[#d1c5b6] bg-[#efeeeb] animate-pulse"></div>
+                      ) : stopDesks.length === 1 ? (
+                        <div className="w-full border border-[#d1c5b6] bg-[#f4f3f1] px-4 py-3" style={{ ...BODY, color: '#1a1c1a' }}>
+                          {stopDesks[0]} (Sélectionné automatiquement)
+                        </div>
+                      ) : (
+                        <select
+                          required
+                          value={formData.city}
+                          onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+                          style={{ ...BODY, color: '#1a1c1a' }}
+                          className="w-full border border-[#d1c5b6] bg-transparent px-4 py-3 focus:border-[#775928] focus:outline-none focus:ring-0 transition-colors"
+                        >
+                          <option value="">Sélectionner un point relais…</option>
+                          {stopDesks.map(desk => (
+                            <option key={desk} value={desk}>{desk}</option>
+                          ))}
+                        </select>
+                      )}
+                    </div>
+                  )}
                   <div className="space-y-1">
                     <label style={{ ...LABEL, fontSize: '13px', color: '#4e453a' }}>Notes de Livraison (Optionnel)</label>
                     <input
@@ -292,12 +451,40 @@ export default function CheckoutModal({ open, onClose, total, orderItems }: Prop
                 </div>
 
                 {/* ── Order total recap ── */}
-                <div className="bg-[#f4f3f1] px-6 py-4 flex justify-between items-center">
-                  <span style={{ ...LABEL, color: '#4e453a', textTransform: 'uppercase' }}>Total de la Commande</span>
-                  <span style={{ fontFamily: BODA, fontSize: '20px', fontWeight: 500, color: '#775928' }}>
-                    {total}
-                  </span>
-                </div>
+                {(() => {
+                  const shippingFee = fees && !feesLoading && !feesError
+                    ? (deliveryType === 'desk' && fees.desk !== null ? fees.desk : fees.home)
+                    : null;
+                  const grandTotal = shippingFee !== null ? totalAmount + shippingFee : null;
+                  return (
+                    <div className="bg-[#f4f3f1] px-6 py-4 space-y-2">
+                      <div className="flex justify-between items-center">
+                        <span style={{ ...BODY, fontSize: '14px', color: '#5f5e5e' }}>Sous-total</span>
+                        <span style={{ fontFamily: BODA, fontSize: '16px', fontWeight: 500, color: '#1a1c1a' }}>
+                          {total}
+                        </span>
+                      </div>
+                      {shippingFee !== null && (
+                        <div className="flex justify-between items-center">
+                          <span style={{ ...BODY, fontSize: '14px', color: '#5f5e5e' }}>
+                            Livraison ({deliveryType === 'desk' ? 'Point Relais' : 'À Domicile'})
+                          </span>
+                          <span style={{ fontFamily: BODA, fontSize: '16px', fontWeight: 500, color: '#1a1c1a' }}>
+                            {shippingFee.toLocaleString('fr-DZ')} DZD
+                          </span>
+                        </div>
+                      )}
+                      <div className="flex justify-between items-center border-t border-[#d1c5b6] pt-2 mt-2">
+                        <span style={{ ...LABEL, color: '#4e453a', textTransform: 'uppercase' }}>Total à Payer</span>
+                        <span style={{ fontFamily: BODA, fontSize: '20px', fontWeight: 500, color: '#775928' }}>
+                          {grandTotal !== null
+                            ? `DZD ${grandTotal.toLocaleString('fr-DZ')}`
+                            : total}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })()}
 
                 {/* ── Submit ── */}
                 <button

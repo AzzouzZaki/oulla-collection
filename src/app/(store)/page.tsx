@@ -99,18 +99,37 @@ export default function StoreHome() {
       {/* ══════════════════════════════════════════════
           HERO — Refined mobile 100dvh layout
       ══════════════════════════════════════════════ */}
-      <section className="relative h-[100dvh] md:h-[85vh] min-h-[560px] w-full flex flex-col justify-end md:justify-center overflow-hidden">
-        {/* Background image - Mobile (Original) */}
-        <div
-          className="absolute inset-0 bg-cover bg-center block md:hidden"
-          style={{ backgroundImage: `url('${HERO_IMAGE_URL}')` }}
+      <section className="relative h-[100dvh] md:h-[85vh] min-h-[600px] w-full flex flex-col justify-end md:justify-center overflow-hidden">
+        {/* Background image — full quality, fully visible figure */}
+        <img
+          src={HERO_IMAGE_URL}
+          alt="Kaftan Oulla"
+          style={{
+            position: 'absolute',
+            inset: 0,
+            width: '100%',
+            height: '100%',
+            /* Mobile: contain so the whole figure is seen */
+            objectFit: 'contain',
+            objectPosition: 'center top',
+          }}
+          className="block md:hidden"
         />
-        {/* Background image - Desktop */}
-        <div
-          className="absolute inset-0 bg-cover bg-center hidden md:block"
-          style={{ backgroundImage: `url('${HERO_IMAGE_URL}')` }}
+        <img
+          src={HERO_IMAGE_URL}
+          alt="Kaftan Oulla"
+          style={{
+            position: 'absolute',
+            inset: 0,
+            width: '100%',
+            height: '100%',
+            /* Desktop: cover but anchored top-center so head is always in frame */
+            objectFit: 'cover',
+            objectPosition: 'center 15%',
+          }}
+          className="hidden md:block"
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent md:bg-[#1a1c1a]/25" />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/65 via-black/20 to-transparent md:bg-[#1a1c1a]/20" />
 
         {/* Hero content */}
         <div className="relative z-10 w-full max-w-[1280px] mx-auto px-6 md:px-16 flex flex-col items-center md:items-start gap-4 md:gap-8 pb-8 md:pb-0">

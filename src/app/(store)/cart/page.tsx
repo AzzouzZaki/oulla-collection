@@ -65,6 +65,7 @@ export default function CartPage() {
         open={checkoutOpen}
         onClose={() => setCheckoutOpen(false)}
         total={totalFormatted}
+        totalAmount={total}
         orderItems={orderItems}
       />
 
