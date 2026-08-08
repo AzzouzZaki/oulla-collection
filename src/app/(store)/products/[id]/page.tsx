@@ -320,6 +320,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
         open={checkoutOpen}
         onClose={() => setCheckoutOpen(false)}
         total={orderTotal}
+        totalAmount={Number(product.price) * qty}
         orderItems={[{ product_id: product.id, quantity: qty }]}
       />
 
