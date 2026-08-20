@@ -12,6 +12,8 @@ interface OrderItem {
   product_name?: string;
   quantity: number;
   unit_price: number;
+  color?: string;
+  size?: string;
 }
 
 interface Order {
@@ -420,7 +422,14 @@ export default function OrdersPage() {
                       <tbody className="divide-y divide-[#E5E7EB]">
                         {orderDetail.items?.map(item => (
                           <tr key={item.id}>
-                            <td className="px-4 py-3">{item.product_name || 'Product deleted'}</td>
+                            <td className="px-4 py-3">
+                              <div>{item.product_name || 'Product deleted'}</div>
+                              {(item.color || item.size) && (
+                                <div className="text-xs text-[#6B7280] mt-0.5">
+                                  {item.color || '—'} / {item.size || '—'}
+                                </div>
+                              )}
+                            </td>
                             <td className="px-4 py-3 text-right">{item.quantity}</td>
                             <td className="px-4 py-3 text-right">{item.unit_price} DZD</td>
                             <td className="px-4 py-3 text-right font-medium">{item.unit_price * item.quantity} DZD</td>

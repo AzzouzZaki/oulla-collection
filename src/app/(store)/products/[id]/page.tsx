@@ -61,6 +61,22 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
   const [isFav, setIsFav]             = useState(false);
   const [viewerSrc, setViewerSrc]     = useState<string | null>(null);
 
+  // Set default selections
+  useEffect(() => {
+    if (product) {
+      if (product.colors && product.colors.length > 0) setSelectedColor(product.colors[0]);
+      if (product.sizes && product.sizes.length > 0) setSelectedSize(product.sizes[0]);
+    }
+  }, [product]);
+
+  const currentVariant = product?.variants?.find(
+    v => v.color === selectedColor && v.size === selectedSize
+  );
+  
+  const isOOS = currentVariant ? currentVariant.stock === 0 : product?.stock === 0;
+  const currentStock = currentVariant ? currentVariant.stock : (product?.stock || 0);
+  const variantId = currentVariant ? currentVariant.id : undefined;
+
   /* Fetch product */
   useEffect(() => {
     setLoading(true);
@@ -90,9 +106,18 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
   }, [product]);
 
   const handleAddToBag = () => {
-    if (!product) return;
+    if (!product || isOOS) return;
     const img = product.images?.find(i => i.is_primary)?.url || product.images?.[0]?.url || '';
-    addToCart({ product_id: product.id, name: product.name, price: Number(product.price), image: img, qty });
+    addToCart({ 
+      product_id: product.id, 
+      variant_id: variantId,
+      name: product.name, 
+      price: Number(product.price), 
+      image: img, 
+      qty,
+      color: selectedColor,
+      size: selectedSize
+    });
     setAdded(true);
     setTimeout(() => setAdded(false), 2000);
   };
@@ -194,9 +219,9 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
                 style={{
                   ...LABEL,
                   padding: '8px 16px',
-                  border: `1px solid ${(selectedColor || product.colors?.[0]) === c ? '#775928' : '#d1c5b6'}`,
-                  color:  (selectedColor || product.colors?.[0]) === c ? '#775928' : '#4e453a',
-                  background: (selectedColor || product.colors?.[0]) === c ? 'rgba(119,89,40,0.08)' : 'transparent',
+                  border: `1px solid ${selectedColor === c ? '#775928' : '#d1c5b6'}`,
+                  color:  selectedColor === c ? '#775928' : '#4e453a',
+                  background: selectedColor === c ? 'rgba(119,89,40,0.08)' : 'transparent',
                   cursor: 'pointer',
                   transition: 'all 0.2s',
                 }}
@@ -214,7 +239,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
           <span style={{ ...LABEL, textTransform: 'uppercase', color: '#4e453a' }}>Sélectionner la Taille</span>
           <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
             {product.sizes.map((s) => {
-              const active = (selectedSize || product.sizes?.[0]) === s;
+              const active = selectedSize === s;
               return (
                 <button
                   key={s}
@@ -237,12 +262,12 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
       )}
 
       {/* Stock indicator */}
-      {product.stock > 0 ? (
-        <p style={{ ...LABEL, fontSize: '11px', textTransform: 'uppercase', color: product.stock <= 5 ? '#775928' : '#4e453a', margin: 0 }}>
-          {product.stock <= 5 ? `Il n'en reste que ${product.stock} en stock` : 'En Stock'}
+      {!isOOS ? (
+        <p style={{ ...LABEL, fontSize: '11px', textTransform: 'uppercase', color: currentStock <= 5 ? '#775928' : '#4e453a', margin: 0 }}>
+          {currentStock <= 5 ? `Il n'en reste que ${currentStock} en stock` : 'En Stock'}
         </p>
       ) : (
-        <p style={{ ...LABEL, fontSize: '11px', textTransform: 'uppercase', color: '#ba1a1a', margin: 0 }}>Rupture de Stock</p>
+        <p style={{ ...LABEL, fontSize: '11px', textTransform: 'uppercase', color: '#ba1a1a', margin: 0 }}>Rupture de Stock pour cette sélection</p>
       )}
 
       {/* Quantity stepper */}
@@ -255,7 +280,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
           >−</button>
           <span style={{ ...BODY, color: '#1a1c1a', padding: '0 16px', minWidth: '2rem', textAlign: 'center', fontWeight: 700 }}>{qty}</span>
           <button
-            onClick={() => setQty((q) => Math.min(product.stock || 99, q + 1))}
+            onClick={() => setQty((q) => Math.min(currentStock, q + 1))}
             style={{ ...BODY, color: '#4e453a', padding: '0 16px', background: 'none', border: 'none', cursor: 'pointer', fontSize: '18px', lineHeight: 1 }}
           >+</button>
         </div>
@@ -265,13 +290,13 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
       <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
         <button
           onClick={handleAddToBag}
-          disabled={product.stock === 0}
+          disabled={isOOS}
           style={{
             fontFamily: DM, fontSize: '14px', fontWeight: 700, letterSpacing: '0.2em',
             color: '#ffffff', textTransform: 'uppercase',
             background: added ? '#775928' : '#1a1c1a',
             height: '56px', width: '100%', border: 'none', cursor: 'pointer',
-            transition: 'all 0.4s', opacity: product.stock === 0 ? 0.5 : 1,
+            transition: 'all 0.4s', opacity: isOOS ? 0.5 : 1,
           }}
           className="hover:bg-[#775928] active:scale-95 shadow-lg disabled:cursor-not-allowed"
         >
@@ -280,13 +305,13 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
 
         <button
           onClick={() => setCheckoutOpen(true)}
-          disabled={product.stock === 0}
+          disabled={isOOS}
           style={{
             fontFamily: DM, fontSize: '14px', fontWeight: 700, letterSpacing: '0.2em',
             color: '#775928', textTransform: 'uppercase',
             background: 'transparent', height: '56px', width: '100%',
             border: '1px solid #775928', cursor: 'pointer',
-            transition: 'all 0.3s', opacity: product.stock === 0 ? 0.5 : 1,
+            transition: 'all 0.3s', opacity: isOOS ? 0.5 : 1,
           }}
           className="hover:bg-[#775928] hover:text-white active:scale-[0.98] disabled:cursor-not-allowed"
         >
@@ -321,7 +346,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
         onClose={() => setCheckoutOpen(false)}
         total={orderTotal}
         totalAmount={Number(product.price) * qty}
-        orderItems={[{ product_id: product.id, quantity: qty }]}
+        orderItems={[{ product_id: product.id, variant_id: variantId, quantity: qty }]}
       />
 
       {/* Full-Screen Image Viewer */}
@@ -342,19 +367,19 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
         {/* ── Hero split section ── */}
         <section style={{ display: 'grid', gridTemplateColumns: '1fr 480px', gap: '24px', paddingTop: '48px', paddingBottom: '48px' }}>
 
-          {/* Left: 2-col image grid (800px tall) */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px', height: '800px' }}>
+          {/* Left: 2-col image grid */}
+          <div style={{ display: 'grid', gridTemplateColumns: '3fr 1fr', gap: '16px' }}>
 
             {/* Large hero image — spans full height in col 1 */}
             <div
-              style={{ gridColumn: '1', gridRow: '1', height: '100%', background: '#efeeeb', overflow: 'hidden', position: 'relative' }}
+              style={{ gridColumn: '1', gridRow: '1', background: '#efeeeb', overflow: 'hidden', position: 'relative', height: '100%' }}
               className="group cursor-crosshair"
             >
               {images.length > 0 ? (
                 <img
                   src={images[activeImg]}
                   alt={product.name}
-                  style={{ width: '100%', height: '100%', objectFit: 'cover', transition: 'transform 0.7s ease-out', cursor: 'zoom-in' }}
+                  style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', objectFit: 'cover', transition: 'transform 0.7s ease-out', cursor: 'zoom-in' }}
                   className="group-hover:scale-105"
                   onClick={() => setViewerSrc(images[activeImg])}
                 />
@@ -383,7 +408,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
             </div>
 
             {/* Right col: 3 stacked thumbnails */}
-            <div style={{ gridColumn: '2', display: 'grid', gridTemplateRows: '1fr 1fr 1fr', gap: '24px', height: '100%' }}>
+            <div style={{ gridColumn: '2', display: 'flex', flexDirection: 'column', gap: '16px' }}>
               {[1, 2, 3].map((offset) => {
                 const imgIdx = offset; // index 1, 2, 3
                 const src    = images[imgIdx] || images[0] || '';
@@ -392,9 +417,9 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
                     key={offset}
                     onClick={() => setActiveImg(imgIdx < images.length ? imgIdx : 0)}
                     style={{
-                      height: '100%', overflow: 'hidden', background: '#efeeeb',
+                      width: '100%', aspectRatio: '3/4', overflow: 'hidden', background: '#efeeeb', position: 'relative',
                       border: `2px solid ${activeImg === imgIdx ? '#775928' : 'transparent'}`,
-                      cursor: 'pointer', transition: 'border-color 0.2s', padding: 0,
+                      cursor: 'pointer', transition: 'border-color 0.2s', padding: 0, display: 'block',
                     }}
                     className="group"
                   >
@@ -402,7 +427,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
                       <img
                         src={src}
                         alt={`View ${offset + 1}`}
-                        style={{ width: '100%', height: '100%', objectFit: 'cover', transition: 'transform 0.5s' }}
+                        style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', objectFit: 'cover', transition: 'transform 0.5s' }}
                         className="group-hover:scale-105"
                       />
                     ) : (
@@ -567,12 +592,12 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
         </div>
         <button
           onClick={handleAddToBag}
-          disabled={product.stock === 0}
+          disabled={isOOS}
           style={{
             fontFamily: DM, fontSize: '12px', fontWeight: 700, letterSpacing: '0.15em',
             color: '#ffffff', textTransform: 'uppercase',
             background: '#775928', padding: '12px 24px', border: 'none', cursor: 'pointer',
-            whiteSpace: 'nowrap', transition: 'background 0.2s', opacity: product.stock === 0 ? 0.5 : 1,
+            whiteSpace: 'nowrap', transition: 'background 0.2s', opacity: isOOS ? 0.5 : 1,
           }}
           className="hover:bg-[#e8c086] hover:text-[#1a1c1a] disabled:cursor-not-allowed"
         >

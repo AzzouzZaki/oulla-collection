@@ -33,6 +33,7 @@ interface Product {
   fabric?: string | null;
   images?: ProductImage[];
   category?: Category;
+  variants?: { id?: number; color: string; size: string; stock: number }[];
 }
 
 interface PaginatedProducts {
@@ -74,11 +75,11 @@ export default function ProductsPage() {
     description: '',
     price: 0,
     category_id: '' as string | number,
-    stock: 0,
     is_available: true,
     colors: [] as string[],
     sizes: [] as string[],
     fabric: '' as string | null,
+    variants: [] as { color: string; size: string; stock: number }[],
   });
   const [formImages, setFormImages] = useState<ProductImage[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -165,11 +166,11 @@ export default function ProductsPage() {
       description: '',
       price: 0,
       category_id: '',
-      stock: 0,
       is_available: true,
       colors: [],
       sizes: [],
       fabric: '',
+      variants: [],
     });
     setFormImages([]);
     setIsFormModalOpen(true);
@@ -182,11 +183,11 @@ export default function ProductsPage() {
       description: prod.description || '',
       price: prod.price,
       category_id: prod.category_id || '',
-      stock: prod.stock,
       is_available: prod.is_available,
       colors: prod.colors || [],
       sizes: prod.sizes || [],
       fabric: prod.fabric || '',
+      variants: prod.variants ? prod.variants.map(v => ({ color: v.color, size: v.size, stock: v.stock })) : [],
     });
     setFormImages(prod.images ? [...prod.images] : []);
     setIsFormModalOpen(true);
@@ -286,8 +287,18 @@ export default function ProductsPage() {
         sizes: addUniqueValue(formData.sizes, sizeInput),
       };
 
+      // Ensure all combinations exist and filter out stale ones
+      const finalVariants = [];
+      for (const color of completedFormData.colors) {
+        for (const size of completedFormData.sizes) {
+          const existing = completedFormData.variants.find(v => v.color === color && v.size === size);
+          finalVariants.push(existing || { color, size, stock: 0 });
+        }
+      }
+
       const payload = {
         ...completedFormData,
+        variants: finalVariants,
         category_id: completedFormData.category_id === '' ? null : Number(completedFormData.category_id),
         images: formImages.map((img, idx) => ({
           ...img,
@@ -601,29 +612,16 @@ export default function ProductsPage() {
                 />
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-[#111827] mb-1">Price (DZD)</label>
-                  <input
-                    type="number"
-                    min="0"
-                    required
-                    value={formData.price}
-                    onChange={(e) => setFormData({ ...formData, price: Number(e.target.value) })}
-                    className="w-full border border-[#E5E7EB] rounded-[6px] px-3 py-2 text-sm text-[#111827] outline-none focus:border-[#6366F1] focus:ring-1 focus:ring-[#6366F1]"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-[#111827] mb-1">Stock</label>
-                  <input
-                    type="number"
-                    min="0"
-                    required
-                    value={formData.stock}
-                    onChange={(e) => setFormData({ ...formData, stock: Number(e.target.value) })}
-                    className="w-full border border-[#E5E7EB] rounded-[6px] px-3 py-2 text-sm text-[#111827] outline-none focus:border-[#6366F1] focus:ring-1 focus:ring-[#6366F1]"
-                  />
-                </div>
+              <div>
+                <label className="block text-sm font-medium text-[#111827] mb-1">Price (DZD)</label>
+                <input
+                  type="number"
+                  min="0"
+                  required
+                  value={formData.price}
+                  onChange={(e) => setFormData({ ...formData, price: Number(e.target.value) })}
+                  className="w-full border border-[#E5E7EB] rounded-[6px] px-3 py-2 text-sm text-[#111827] outline-none focus:border-[#6366F1] focus:ring-1 focus:ring-[#6366F1]"
+                />
               </div>
 
               <div>
@@ -737,6 +735,62 @@ export default function ProductsPage() {
                   Available for purchase
                 </label>
               </div>
+
+              {/* Variants Matrix */}
+              {formData.colors.length > 0 && formData.sizes.length > 0 && (
+                <div className="border-t border-[#E5E7EB] pt-4 mt-4">
+                  <label className="block text-sm font-medium text-[#111827] mb-2">Variant Stock</label>
+                  <div className="overflow-x-auto border border-[#E5E7EB] rounded-[6px]">
+                    <table className="w-full text-sm text-left">
+                      <thead className="bg-[#F8F9FA] text-[#6B7280]">
+                        <tr>
+                          <th className="px-4 py-2 border-b border-[#E5E7EB]">Color / Size</th>
+                          {formData.sizes.map(size => (
+                            <th key={size} className="px-4 py-2 border-b border-[#E5E7EB] border-l font-medium text-center">{size}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {formData.colors.map(color => (
+                          <tr key={color} className="border-b border-[#E5E7EB] last:border-0">
+                            <td className="px-4 py-2 font-medium bg-[#F8F9FA] text-[#111827] whitespace-nowrap">{color}</td>
+                            {formData.sizes.map(size => {
+                              const variant = formData.variants.find(v => v.color === color && v.size === size);
+                              const stock = variant ? variant.stock : 0;
+                              return (
+                                <td key={`${color}-${size}`} className="border-l border-[#E5E7EB] p-2 min-w-[80px]">
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    value={stock}
+                                    onChange={(e) => {
+                                      const newStock = Number(e.target.value);
+                                      setFormData(prev => {
+                                        const exists = prev.variants.find(v => v.color === color && v.size === size);
+                                        let newVariants;
+                                        if (exists) {
+                                          newVariants = prev.variants.map(v => v.color === color && v.size === size ? { ...v, stock: newStock } : v);
+                                        } else {
+                                          newVariants = [...prev.variants, { color, size, stock: newStock }];
+                                        }
+                                        return { ...prev, variants: newVariants };
+                                      });
+                                    }}
+                                    className={`w-full text-center border rounded-[4px] px-2 py-1 text-sm outline-none focus:border-[#6366F1] focus:ring-1 focus:ring-[#6366F1] ${stock === 0 ? 'bg-red-50 border-red-200 text-red-600' : 'border-[#E5E7EB] bg-white text-[#111827]'}`}
+                                  />
+                                </td>
+                              );
+                            })}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  <div className="mt-2 text-right text-sm text-[#6B7280]">
+                    Total Stock: <span className="font-medium text-[#111827]">{formData.variants.filter(v => formData.colors.includes(v.color) && formData.sizes.includes(v.size)).reduce((sum, v) => sum + v.stock, 0)}</span>
+                  </div>
+                </div>
+              )}
 
               {/* Images Section */}
               <div className="border-t border-[#E5E7EB] pt-4 mt-4">

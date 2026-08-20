@@ -161,7 +161,7 @@ export async function POST(request: NextRequest) {
       wilaya: string;
       customer_instagram?: string | null;
       notes?: string | null;
-      items: { product_id: number; quantity: number }[];
+      items: { product_id: number; variant_id?: number | null; quantity: number }[];
     };
 
     // Validate required fields
@@ -176,7 +176,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Validate each item and fetch prices from DB
-    const enrichedItems: { product_id: number; quantity: number; unit_price: number }[] = [];
+    const enrichedItems: { product_id: number; variant_id: number | null; quantity: number; unit_price: number }[] = [];
     for (const item of items) {
       if (!item.product_id || !item.quantity || item.quantity < 1) {
         return NextResponse.json(
@@ -204,8 +204,37 @@ export async function POST(request: NextRequest) {
         );
       }
 
+      // Check variant stock if variant_id is provided
+      if (item.variant_id) {
+        // We do a SELECT without FOR UPDATE to keep it simple, since actual decrement is on 'shipped'
+        // If we really wanted to lock at order creation we'd use transactions.
+        const variantRows = await sql`
+          SELECT stock, color, size FROM product_variants WHERE id = ${item.variant_id} AND product_id = ${item.product_id}
+        ` as { stock: number; color: string; size: string }[];
+
+        if (variantRows.length === 0) {
+          return NextResponse.json(
+            { error: `Variant not found for product "${product.name}"` },
+            { status: 400 }
+          );
+        }
+
+        if (variantRows[0].stock <= 0) {
+          return NextResponse.json(
+            { 
+              error: 'OUT_OF_STOCK', 
+              color: variantRows[0].color, 
+              size: variantRows[0].size,
+              message: `Ce produit n'est pas disponible dans cette couleur et taille` 
+            },
+            { status: 400 }
+          );
+        }
+      }
+
       enrichedItems.push({
         product_id: item.product_id,
+        variant_id: item.variant_id ?? null,
         quantity: item.quantity,
         unit_price: product.price,
       });
@@ -235,8 +264,8 @@ export async function POST(request: NextRequest) {
     // Insert order items
     for (const item of enrichedItems) {
       await sql`
-        INSERT INTO order_items (order_id, product_id, quantity, unit_price)
-        VALUES (${order.id}, ${item.product_id}, ${item.quantity}, ${item.unit_price})
+        INSERT INTO order_items (order_id, product_id, variant_id, quantity, unit_price)
+        VALUES (${order.id}, ${item.product_id}, ${item.variant_id}, ${item.quantity}, ${item.unit_price})
       `;
     }
 

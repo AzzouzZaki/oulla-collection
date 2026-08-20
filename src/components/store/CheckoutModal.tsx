@@ -14,7 +14,7 @@ interface Props {
   onClose: () => void;
   total: string;
   totalAmount: number;
-  orderItems?: { product_id: number; quantity: number }[];
+  orderItems?: { product_id: number; variant_id?: number | null; quantity: number }[];
 }
 
 
@@ -150,6 +150,7 @@ export default function CheckoutModal({ open, onClose, total, totalAmount, order
         const cart = getCart();
         itemsToOrder = cart.map((c) => ({
           product_id: c.product_id,
+          variant_id: c.variant_id ?? null,
           quantity: c.qty,
         }));
       }

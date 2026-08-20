@@ -90,6 +90,15 @@ export async function GET(request: NextRequest) {
       ` as unknown as ProductImage[];
     }
 
+    // Fetch variants for all products in one query
+    let variants: { id: number; product_id: number; color: string; size: string; stock: number }[] = [];
+    if (productIds.length > 0) {
+      variants = await sql`
+        SELECT * FROM product_variants
+        WHERE product_id = ANY(${productIds}::int[])
+      ` as unknown as typeof variants;
+    }
+
     // Attach images and category to each product
     const data = products.map((row) => {
       const r = row as unknown as Record<string, unknown>;
@@ -106,6 +115,7 @@ export async function GET(request: NextRequest) {
         fabric: (r.fabric as string) || null,
         created_at: r.created_at as string,
         images: images.filter((img) => img.product_id === r.id),
+        variants: variants.filter((v) => v.product_id === r.id),
         category: r.cat_id
           ? ({
               id: r.cat_id as number,
@@ -146,17 +156,17 @@ export async function POST(request: NextRequest) {
     await verifyAdmin(request);
 
     const body = await request.json();
-    const { name, description, price, category_id, stock, is_available, colors, sizes, fabric, images } = body as {
+    const { name, description, price, category_id, is_available, colors, sizes, fabric, images, variants } = body as {
       name: string;
       description?: string | null;
       price: number;
       category_id?: number | null;
-      stock?: number;
       is_available?: boolean;
       colors?: string[];
       sizes?: string[];
       fabric?: string | null;
       images?: { url: string; is_primary: boolean; order: number }[];
+      variants?: { color: string; size: string; stock: number }[];
     };
 
     if (!name || price === undefined || price === null) {
@@ -164,13 +174,12 @@ export async function POST(request: NextRequest) {
     }
 
     const [product] = await sql`
-      INSERT INTO products (name, description, price, category_id, stock, is_available, colors, sizes, fabric)
+      INSERT INTO products (name, description, price, category_id, is_available, colors, sizes, fabric)
       VALUES (
         ${name},
         ${description ?? null},
         ${price},
         ${category_id ?? null},
-        ${stock ?? 0},
         ${is_available ?? true},
         ${colors ?? []},
         ${sizes ?? []},
@@ -198,7 +207,21 @@ export async function POST(request: NextRequest) {
       ` as unknown as ProductImage[];
     }
 
-    return NextResponse.json({ ...product, images: insertedImages }, { status: 201 });
+    if (variants && variants.length > 0) {
+      for (const v of variants) {
+        await sql`
+          INSERT INTO product_variants (product_id, color, size, stock)
+          VALUES (${product.id}, ${v.color}, ${v.size}, ${v.stock})
+        `;
+      }
+    }
+
+    // refetch product to get the updated computed stock from trigger
+    const [finalProduct] = await sql`
+      SELECT * FROM products WHERE id = ${product.id}
+    ` as unknown as Product[];
+
+    return NextResponse.json({ ...finalProduct, images: insertedImages }, { status: 201 });
   } catch (error) {
     if (error instanceof NextResponse) return error;
     console.error('[POST /api/products]', error);

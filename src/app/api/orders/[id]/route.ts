@@ -32,7 +32,10 @@ export async function GET(
     }
 
     const items = await sql`
-      SELECT * FROM order_items WHERE order_id = ${orderId}
+      SELECT oi.*, pv.color, pv.size 
+      FROM order_items oi
+      LEFT JOIN product_variants pv ON oi.variant_id = pv.id
+      WHERE oi.order_id = ${orderId}
     ` as unknown as OrderItem[];
 
     return NextResponse.json({ ...rows[0], items });
@@ -93,17 +96,17 @@ export async function PUT(
     if (status === 'shipped' && previousStatus !== 'shipped') {
       for (const item of items) {
         if (item.product_id === null) continue;
-        const productRows = await sql`
-          SELECT stock FROM products WHERE id = ${item.product_id}
-        ` as { stock: number }[];
-        if (productRows.length > 0 && productRows[0].stock - item.quantity < 0) {
-          console.warn(
-            `[PUT /api/orders/[id]] Stock for product ${item.product_id} will go negative after shipping order ${orderId}`
-          );
+        
+        if (item.variant_id !== null) {
+          await sql`
+            UPDATE product_variants SET stock = stock - ${item.quantity} WHERE id = ${item.variant_id}
+          `;
+        } else {
+          // Legacy items
+          await sql`
+            UPDATE products SET stock = stock - ${item.quantity} WHERE id = ${item.product_id}
+          `;
         }
-        await sql`
-          UPDATE products SET stock = stock - ${item.quantity} WHERE id = ${item.product_id}
-        `;
       }
     }
 
@@ -111,9 +114,17 @@ export async function PUT(
     if (status === 'cancelled' && previousStatus === 'shipped') {
       for (const item of items) {
         if (item.product_id === null) continue;
-        await sql`
-          UPDATE products SET stock = stock + ${item.quantity} WHERE id = ${item.product_id}
-        `;
+        
+        if (item.variant_id !== null) {
+          await sql`
+            UPDATE product_variants SET stock = stock + ${item.quantity} WHERE id = ${item.variant_id}
+          `;
+        } else {
+          // Legacy items
+          await sql`
+            UPDATE products SET stock = stock + ${item.quantity} WHERE id = ${item.product_id}
+          `;
+        }
       }
     }
 

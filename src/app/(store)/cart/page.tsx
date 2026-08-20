@@ -39,16 +39,16 @@ export default function CartPage() {
       .catch(console.error);
   }, []);
 
-  const handleUpdateQty = (product_id: number, delta: number) => {
-    const item = items.find(i => i.product_id === product_id);
+  const handleUpdateQty = (product_id: number, variant_id: number | null | undefined, delta: number) => {
+    const item = items.find(i => i.product_id === product_id && i.variant_id === variant_id);
     if (!item) return;
     const newQty = Math.max(1, item.qty + delta);
-    updateCartQty(product_id, newQty);
+    updateCartQty(product_id, variant_id, newQty);
     syncCart();
   };
 
-  const handleRemove = (product_id: number) => {
-    removeFromCart(product_id);
+  const handleRemove = (product_id: number, variant_id?: number | null) => {
+    removeFromCart(product_id, variant_id);
     syncCart();
   };
 
@@ -57,7 +57,7 @@ export default function CartPage() {
   const total        = subtotal + shipping;
   const totalFormatted = fmt(total);
 
-  const orderItems = items.map(i => ({ product_id: i.product_id, quantity: i.qty }));
+  const orderItems = items.map(i => ({ product_id: i.product_id, variant_id: i.variant_id ?? null, quantity: i.qty }));
 
   return (
     <div className="w-full bg-[#faf9f6] text-[#1a1c1a] min-h-screen">
@@ -106,7 +106,7 @@ export default function CartPage() {
               ) : (
                 items.map((item, i) => (
                   <div
-                    key={item.product_id}
+                    key={`${item.product_id}-${item.variant_id || 'base'}`}
                     className={`flex flex-col sm:flex-row gap-6 sm:gap-8 py-8 ${
                       i < items.length - 1 ? 'border-b border-[#d1c5b6]/30' : ''
                     }`}
@@ -129,11 +129,11 @@ export default function CartPage() {
                               {item.name}
                             </h3>
                           </Link>
-                          {item.variant && (
+                          {(item.color || item.size) ? (
                             <p style={{ ...LABEL_SM, color: '#5f5e5e', textTransform: 'uppercase' }} className="mb-4">
-                              {item.variant}
+                              {item.color || ''} {item.color && item.size ? '/' : ''} {item.size || ''}
                             </p>
-                          )}
+                          ) : null}
                         </div>
                         <p style={{ ...HEADLINE_SM, color: '#775928', fontSize: '20px' }}>
                           {fmt(item.price * item.qty)}
@@ -145,7 +145,7 @@ export default function CartPage() {
                         {/* Stepper */}
                         <div className="flex items-center border border-[#d1c5b6] rounded-full px-2 py-1 gap-4">
                           <button
-                            onClick={() => handleUpdateQty(item.product_id, -1)}
+                            onClick={() => handleUpdateQty(item.product_id, item.variant_id, -1)}
                             className="w-7 h-7 flex items-center justify-center text-[#1a1c1a] hover:text-[#775928] transition-colors"
                             aria-label="Decrease quantity"
                           >
@@ -155,7 +155,7 @@ export default function CartPage() {
                             {item.qty < 10 ? '0' + item.qty : item.qty}
                           </span>
                           <button
-                            onClick={() => handleUpdateQty(item.product_id, 1)}
+                            onClick={() => handleUpdateQty(item.product_id, item.variant_id, 1)}
                             className="w-7 h-7 flex items-center justify-center text-[#1a1c1a] hover:text-[#775928] transition-colors"
                             aria-label="Increase quantity"
                           >
@@ -165,7 +165,7 @@ export default function CartPage() {
 
                         {/* Remove */}
                         <button
-                          onClick={() => handleRemove(item.product_id)}
+                          onClick={() => handleRemove(item.product_id, item.variant_id)}
                           style={{ ...LABEL_SM, textTransform: 'uppercase', color: '#4e453a' }}
                           className="flex items-center gap-1.5 hover:text-[#ba1a1a] transition-colors"
                         >
