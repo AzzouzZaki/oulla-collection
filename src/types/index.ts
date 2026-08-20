@@ -13,6 +13,14 @@ export interface ProductImage {
   order: number;
 }
 
+export interface ProductVariant {
+  id: number;
+  product_id: number;
+  color: string;
+  size: string;
+  stock: number;
+}
+
 export interface Product {
   id: number;
   name: string;
@@ -27,6 +35,7 @@ export interface Product {
   created_at: string;
   images?: ProductImage[];
   category?: Category;
+  variants?: ProductVariant[];
 }
 
 export type OrderStatus = 'pending' | 'confirmed' | 'shipped' | 'delivered' | 'cancelled';
@@ -35,8 +44,11 @@ export interface OrderItem {
   id: number;
   order_id: number;
   product_id: number | null;
+  variant_id?: number | null;
   quantity: number;
   unit_price: number;
+  color?: string; // from join
+  size?: string;  // from join
 }
 
 export interface Order {

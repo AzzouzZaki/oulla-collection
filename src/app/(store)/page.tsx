@@ -94,7 +94,7 @@ export default function StoreHome() {
   };
 
   return (
-    <div className="w-full bg-[#faf9f6] text-[#1a1c1a]">
+    <div className="w-full overflow-hidden bg-[#faf9f6] text-[#1a1c1a]">
 
       {/* ══════════════════════════════════════════════
           HERO — Refined mobile 100dvh layout
@@ -109,8 +109,8 @@ export default function StoreHome() {
             inset: 0,
             width: '100%',
             height: '100%',
-            /* Mobile: contain so the whole figure is seen */
-            objectFit: 'contain',
+            /* Mobile: cover to avoid free space */
+            objectFit: 'cover',
             objectPosition: 'center top',
           }}
           className="block md:hidden"
@@ -234,7 +234,7 @@ export default function StoreHome() {
                 <Link
                   key={p.id}
                   href={`/products/${p.id}`}
-                  className="min-w-[280px] md:min-w-0 snap-start group cursor-pointer flex-shrink-0 md:flex-shrink block"
+                  className="w-[80vw] min-w-[80vw] sm:w-[280px] sm:min-w-[280px] md:w-auto md:min-w-0 snap-center sm:snap-start group cursor-pointer flex-shrink-0 block"
                 >
                   <div className="relative aspect-[3/4] overflow-hidden bg-[#efeeeb] mb-6">
                     {primaryImg ? (

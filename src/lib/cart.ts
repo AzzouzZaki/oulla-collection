@@ -1,10 +1,12 @@
 export interface CartItem {
   product_id: number;
+  variant_id?: number | null;
   name: string;
   price: number;
   image: string;
   qty: number;
-  variant?: string;
+  color?: string;
+  size?: string;
 }
 
 const CART_KEY = 'oulla_cart';
@@ -33,7 +35,9 @@ export function saveCart(cart: CartItem[]) {
 export function addToCart(item: Omit<CartItem, 'qty'> & { qty?: number }) {
   const cart = getCart();
   const quantityToAdd = item.qty ?? 1;
-  const existingIdx = cart.findIndex((i) => i.product_id === item.product_id);
+  const existingIdx = cart.findIndex(
+    (i) => i.product_id === item.product_id && i.variant_id === item.variant_id
+  );
 
   if (existingIdx >= 0) {
     cart[existingIdx].qty += quantityToAdd;
@@ -44,9 +48,11 @@ export function addToCart(item: Omit<CartItem, 'qty'> & { qty?: number }) {
   saveCart(cart);
 }
 
-export function updateCartQty(product_id: number, qty: number) {
+export function updateCartQty(product_id: number, variant_id: number | null | undefined, qty: number) {
   const cart = getCart();
-  const idx = cart.findIndex((i) => i.product_id === product_id);
+  const idx = cart.findIndex(
+    (i) => i.product_id === product_id && i.variant_id === variant_id
+  );
   if (idx >= 0) {
     if (qty <= 0) {
       cart.splice(idx, 1);
@@ -57,9 +63,11 @@ export function updateCartQty(product_id: number, qty: number) {
   }
 }
 
-export function removeFromCart(product_id: number) {
+export function removeFromCart(product_id: number, variant_id?: number | null) {
   const cart = getCart();
-  const updated = cart.filter((i) => i.product_id !== product_id);
+  const updated = cart.filter(
+    (i) => !(i.product_id === product_id && i.variant_id === variant_id)
+  );
   saveCart(updated);
 }
 

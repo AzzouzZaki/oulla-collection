@@ -55,3 +55,62 @@ CREATE TABLE IF NOT EXISTS order_items (
   unit_price DECIMAL(10,2) NOT NULL
 );
 
+-- Product Variants
+CREATE TABLE IF NOT EXISTS product_variants (
+  id          SERIAL PRIMARY KEY,
+  product_id  INTEGER NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+  color       VARCHAR(100) NOT NULL,
+  size        VARCHAR(50) NOT NULL,
+  stock       INTEGER NOT NULL DEFAULT 0,
+  UNIQUE(product_id, color, size)
+);
+
+-- Add variant_id to order_items
+ALTER TABLE order_items ADD COLUMN IF NOT EXISTS variant_id INTEGER REFERENCES product_variants(id) ON DELETE SET NULL;
+
+-- Migrate existing products to variants
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM product_variants) THEN
+    -- Distribute stock evenly among variants if possible. Otherwise default 0
+    INSERT INTO product_variants (product_id, color, size, stock)
+    SELECT 
+      p.id as product_id,
+      c.color as color,
+      s.size as size,
+      COALESCE(
+        p.stock / NULLIF(
+          (SELECT COUNT(*) FROM unnest(p.colors) c2 CROSS JOIN unnest(p.sizes) s2), 
+        0), 
+      0) as stock
+    FROM products p
+    CROSS JOIN unnest(p.colors) AS c(color)
+    CROSS JOIN unnest(p.sizes) AS s(size)
+    WHERE cardinality(p.colors) > 0 AND cardinality(p.sizes) > 0;
+  END IF;
+END $$;
+
+-- Stock Trigger Function
+CREATE OR REPLACE FUNCTION sync_product_stock()
+RETURNS TRIGGER AS $$
+BEGIN
+  IF TG_OP = 'INSERT' OR TG_OP = 'UPDATE' THEN
+    UPDATE products
+    SET stock = (SELECT COALESCE(SUM(stock), 0) FROM product_variants WHERE product_id = NEW.product_id)
+    WHERE id = NEW.product_id;
+    RETURN NEW;
+  ELSIF TG_OP = 'DELETE' THEN
+    UPDATE products
+    SET stock = (SELECT COALESCE(SUM(stock), 0) FROM product_variants WHERE product_id = OLD.product_id)
+    WHERE id = OLD.product_id;
+    RETURN OLD;
+  END IF;
+  RETURN NULL;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Trigger
+DROP TRIGGER IF EXISTS trg_sync_product_stock ON product_variants;
+CREATE TRIGGER trg_sync_product_stock
+AFTER INSERT OR UPDATE OR DELETE ON product_variants
+FOR EACH ROW EXECUTE FUNCTION sync_product_stock();

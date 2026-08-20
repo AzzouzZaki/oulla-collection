@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import sql from '@/lib/db';
 import cloudinary from '@/lib/cloudinary';
 import { verifyAdmin } from '@/lib/auth';
-import type { Product, ProductImage, Category } from '@/types';
+import type { Product, ProductImage, Category, ProductVariant } from '@/types';
 
 // ─── GET /api/products/[id] ──────────────────────────────────────────────────
 // Public. Returns a single product with images and category.
@@ -33,6 +33,10 @@ export async function GET(
       SELECT * FROM product_images WHERE product_id = ${r.id} ORDER BY "order" ASC
     ` as unknown as ProductImage[];
 
+    const variants = await sql`
+      SELECT * FROM product_variants WHERE product_id = ${r.id} ORDER BY color, size
+    ` as unknown as ProductVariant[];
+
     const product: Product = {
       id: r.id as number,
       name: r.name as string,
@@ -46,6 +50,7 @@ export async function GET(
       fabric: (r.fabric as string) || null,
       created_at: r.created_at as string,
       images,
+      variants,
       category: r.cat_id
         ? ({
             id: r.cat_id as number,
@@ -80,17 +85,17 @@ export async function PUT(
     const productId = parseInt(id, 10);
 
     const body = await request.json();
-    const { name, description, price, category_id, stock, is_available, colors, sizes, fabric, images } = body as {
+    const { name, description, price, category_id, is_available, colors, sizes, fabric, images, variants } = body as {
       name?: string;
       description?: string | null;
       price?: number;
       category_id?: number | null;
-      stock?: number;
       is_available?: boolean;
       colors?: string[];
       sizes?: string[];
       fabric?: string | null;
       images?: { url: string; is_primary: boolean; order: number }[];
+      variants?: { color: string; size: string; stock: number }[];
     };
 
     // Check product exists
@@ -106,7 +111,6 @@ export async function PUT(
         description  = COALESCE(${description ?? null}, description),
         price        = COALESCE(${price ?? null}, price),
         category_id  = CASE WHEN ${category_id !== undefined} THEN ${category_id ?? null} ELSE category_id END,
-        stock        = COALESCE(${stock ?? null}, stock),
         is_available = COALESCE(${is_available ?? null}, is_available),
         colors       = COALESCE(${colors ?? null}, colors),
         sizes        = COALESCE(${sizes ?? null}, sizes),
@@ -130,7 +134,44 @@ export async function PUT(
       SELECT * FROM product_images WHERE product_id = ${productId} ORDER BY "order" ASC
     ` as unknown as ProductImage[];
 
-    return NextResponse.json({ ...updated, images: updatedImages });
+    // Upsert variants
+    if (variants !== undefined) {
+      if (variants.length === 0) {
+        await sql`DELETE FROM product_variants WHERE product_id = ${productId}`;
+      } else {
+        // Delete removed variants
+        const currentCombos = variants.map(v => `${v.color}::${v.size}`);
+        // Instead of complex NOT IN with composite keys, just delete and insert, or use a simpler approach.
+        // It's easiest to delete all and insert because there are no foreign keys pointing *to* product_variants that can't be ON DELETE CASCADE?
+        // Wait! order_items has `variant_id INTEGER REFERENCES product_variants(id) ON DELETE SET NULL`.
+        // So we CANNOT delete and recreate, we must upsert.
+        for (const v of variants) {
+          await sql`
+            INSERT INTO product_variants (product_id, color, size, stock)
+            VALUES (${productId}, ${v.color}, ${v.size}, ${v.stock})
+            ON CONFLICT (product_id, color, size) DO UPDATE SET stock = EXCLUDED.stock
+          `;
+        }
+        
+        // Delete variants that are no longer in the list
+        // Since we can't easily pass an array of records to NOT IN in raw sql template string easily, 
+        // we can fetch existing, and delete missing.
+        const existingVars = await sql`SELECT id, color, size FROM product_variants WHERE product_id = ${productId}`;
+        for (const ev of existingVars) {
+          const keep = variants.find(v => v.color === ev.color && v.size === ev.size);
+          if (!keep) {
+            await sql`DELETE FROM product_variants WHERE id = ${ev.id}`;
+          }
+        }
+      }
+    }
+
+    // Refetch the product to get the updated stock from the trigger
+    const [finalProduct] = await sql`
+      SELECT * FROM products WHERE id = ${productId}
+    ` as unknown as Product[];
+
+    return NextResponse.json({ ...finalProduct, images: updatedImages });
   } catch (error) {
     if (error instanceof NextResponse) return error;
     console.error('[PUT /api/products/[id]]', error);

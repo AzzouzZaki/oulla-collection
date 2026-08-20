@@ -42,9 +42,9 @@ const migrationPath = join(__dirname, 'migrate.sql');
 const migrationSQL = readFileSync(migrationPath, 'utf8');
 
 // ── Execute each statement individually ──────────────────────────────────────
-// Split on semicolons, filter blanks
+// Split on semicolons, but ignore semicolons inside $$ ... $$ blocks
 const statements = migrationSQL
-  .split(';')
+  .split(/;(?=(?:[^$]*\$\$[^$]*\$\$)*[^$]*$)/)
   .map((s) => s.trim())
   .filter((s) => s.length > 0);
 
