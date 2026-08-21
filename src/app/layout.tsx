@@ -15,8 +15,29 @@ const dmSans = DM_Sans({
 });
 
 export const metadata: Metadata = {
-  title: "Oulla Collection | Modern Modest Luxury",
-  description: "L'héritage algérien rencontre le minimalisme éditorial contemporain.",
+  title: "Oulla Collection",
+  description: "Modern modest luxury inspired by Algerian heritage.",
+  manifest: "/manifest.json",
+  icons: {
+    icon: "/favicon.png",
+    apple: "/apple-touch-icon.png",
+  },
+  openGraph: {
+    title: "Oulla Collection",
+    description: "Modern modest luxury inspired by Algerian heritage.",
+    url: "https://oullacollection.com", // replace with actual domain
+    siteName: "Oulla Collection",
+    images: [
+      {
+        url: "/og-image.jpg",
+        width: 1200,
+        height: 630,
+        alt: "Oulla Collection",
+      },
+    ],
+    locale: "fr_DZ",
+    type: "website",
+  },
 };
 
 export default function RootLayout({
