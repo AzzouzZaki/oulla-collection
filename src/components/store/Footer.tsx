@@ -49,7 +49,7 @@ export default function Footer() {
         <div suppressHydrationWarning className="flex flex-col space-y-4">
           <h4 className="text-xs uppercase tracking-widest font-bold text-[#1a1c1a] mb-2 font-sans">Suivez-nous</h4>
           <div className="flex gap-6">
-            <a href="https://instagram.com" target="_blank" rel="noopener noreferrer" className="text-sm text-[#4e453a] hover:text-[#775928] transition-colors">
+            <a href="https://www.instagram.com/oulla_collection/" target="_blank" rel="noopener noreferrer" className="text-sm text-[#4e453a] hover:text-[#775928] transition-colors">
               Instagram
             </a>
           </div>
