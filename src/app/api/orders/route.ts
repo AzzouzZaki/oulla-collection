@@ -114,7 +114,11 @@ export async function GET(request: NextRequest) {
     let allItems: OrderItem[] = [];
     if (orderIds.length > 0) {
       allItems = await sql`
-        SELECT * FROM order_items WHERE order_id = ANY(${orderIds}::int[])
+        SELECT oi.*, p.name as product_name, pv.color, pv.size 
+        FROM order_items oi
+        LEFT JOIN products p ON oi.product_id = p.id
+        LEFT JOIN product_variants pv ON oi.variant_id = pv.id
+        WHERE oi.order_id = ANY(${orderIds}::int[])
       ` as unknown as OrderItem[];
     }
 

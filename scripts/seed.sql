@@ -107,3 +107,95 @@ INSERT INTO product_images (product_id, url, is_primary, "order") VALUES
 
   -- 15: Silk Chiffon Hijab
   ((SELECT id FROM inserted_products WHERE name = 'Silk Chiffon Hijab'), 'https://lh3.googleusercontent.com/aida-public/AB6AXuC8Ro7k_F6wNNAemdksqMKBocjHA8pl0diJA2NSMqrmfouEmxqkDzIl-2bQXIiki1MbxxtcHY5XgHuMMCDK6UgIP-lLXtiW62SfYipwAinZWynXu174pCIgIK6QUiXqhNp8QZ9ur4qXTP6GGZWxH-AJG9EFjDwfs_DhuA_DY2IWmv8jiF-viAivVOks_OVliKqttVVKRXE67JJvHcLNbpPSMxLw8FIJCqsgr-KM8asFRELCKzcNRcAn', true, 0);
+
+-- Populate Product Variants for all products so variant_id references work
+INSERT INTO product_variants (product_id, color, size, stock)
+SELECT 
+  p.id,
+  c.color,
+  s.size,
+  COALESCE(
+    p.stock / NULLIF((SELECT COUNT(*) FROM unnest(p.colors) c2 CROSS JOIN unnest(p.sizes) s2), 0),
+    0
+  )
+FROM products p
+CROSS JOIN unnest(p.colors) AS c(color)
+CROSS JOIN unnest(p.sizes) AS s(size)
+WHERE cardinality(p.colors) > 0 AND cardinality(p.sizes) > 0
+ON CONFLICT (product_id, color, size) DO NOTHING;
+
+-- Seed Orders
+INSERT INTO orders (id, customer_name, customer_phone, customer_instagram, customer_address, wilaya, total_price, status, zvit_tracking_id, notes, created_at) VALUES
+  (1, 'Amina Benali', '0550123456', '@amina_ben', 'Cité 500 Logements, Bâtiment B4, Hydra', 'Alger', 33000.00, 'pending', NULL, 'Appeler avant de livrer s''il vous plaît', NOW() - INTERVAL '1 hour'),
+  (2, 'Meriem Khelifi', '0661234567', '@meriem.kh', '14 Rue Larbi Ben M''hidi', 'Oran', 49000.00, 'confirmed', 'ZV-ORN-8921', 'Paiement à la livraison', NOW() - INTERVAL '4 hours'),
+  (3, 'Yasmine Bouzid', '0770345678', NULL, 'Cité Bellevue, Villa 12, Sidi Mabrouk', 'Constantine', 24500.00, 'shipped', 'ZV-CST-4412', 'Livraison à domicile express', NOW() - INTERVAL '1 day'),
+  (4, 'Fatima Zohra Mansouri', '0560456789', '@fz_mansouri', 'Boulevard Colonel Amirouche', 'Tizi Ouzou', 26700.00, 'delivered', 'ZV-TZO-1102', 'Commande reçue avec soin', NOW() - INTERVAL '3 days'),
+  (5, 'Khadidja Saidi', '0791567890', '@khadidja_s', 'Rue Khemisti Mohamed', 'Annaba', 19500.00, 'pending', NULL, 'Disponible après 16h', NOW() - INTERVAL '5 hours'),
+  (6, 'Rania Touati', '0555678901', '@rania_style', 'Quartier Les Pins, Lot 8', 'Sétif', 48000.00, 'confirmed', 'ZV-STF-9934', 'Emballage cadeau souhaité', NOW() - INTERVAL '12 hours'),
+  (7, 'Sarah Meziane', '0672789012', NULL, 'Cité 100 Logements, Akid Lotfi', 'Oran', 40500.00, 'delivered', 'ZV-ORN-7741', 'Livraison rapide merci', NOW() - INTERVAL '5 days'),
+  (8, 'Imene Haddad', '0780890123', '@imene.hdd', 'Coopérative El Feth, Dely Ibrahim', 'Alger', 18200.00, 'cancelled', NULL, 'Annulée par la cliente (erreur de taille)', NOW() - INTERVAL '2 days'),
+  (9, 'Nour El Houda Belkacem', '0540901234', '@nour_bh', 'Cité Sidi Rached, Bt 5', 'Blida', 56500.00, 'shipped', 'ZV-BLD-3329', 'Confirmer la réception le matin', NOW() - INTERVAL '1 day'),
+  (10, 'Selma Cherif', '0659012345', '@selma_ch', 'Avenue du 1er Novembre', 'Batna', 32000.00, 'pending', NULL, NULL, NOW() - INTERVAL '8 hours'),
+  (11, 'Lina Amrani', '0777123490', '@lina_amr', 'Hai Essalam, Tranche 3', 'Tlemcen', 37000.00, 'confirmed', 'ZV-TLM-5520', 'Livraison le week-end de préférence', NOW() - INTERVAL '16 hours'),
+  (12, 'Ines Benaissa', '0561239874', NULL, 'Rue Didouche Mourad, Centre Ville', 'Alger', 25300.00, 'delivered', 'ZV-ALG-0081', 'Colis remis en mains propres', NOW() - INTERVAL '6 days'),
+  (13, 'Chaima Meddah', '0663344556', '@chaima.modest', 'Cité 20 Août 1955', 'Béjaïa', 8500.00, 'pending', NULL, 'Premier achat sur la boutique', NOW() - INTERVAL '30 minutes'),
+  (14, 'Houda Zerrouki', '0799887766', '@houda_zrk', 'Boulevard Pasteur', 'Mostaganem', 42700.00, 'shipped', 'ZV-MST-6638', 'Vérifier adresse exacte avant passage', NOW() - INTERVAL '2 days'),
+  (15, 'Manel Larbi', '0554112233', '@manel.fashion', 'Cité Universitaire, Bab Ezzouar', 'Alger', 16800.00, 'cancelled', NULL, 'Cliente injoignable après 3 tentatives', NOW() - INTERVAL '4 days');
+
+-- Reset orders sequence to match highest id
+SELECT setval('orders_id_seq', (SELECT MAX(id) FROM orders));
+
+-- Seed Order Items
+INSERT INTO order_items (order_id, product_id, variant_id, quantity, unit_price) VALUES
+  -- Order 1 (33,000 DZD)
+  (1, (SELECT id FROM products WHERE name = 'The Oasis Emerald'), (SELECT id FROM product_variants WHERE product_id = (SELECT id FROM products WHERE name = 'The Oasis Emerald') AND color = 'Emerald Green' AND size = 'M' LIMIT 1), 1, 24500.00),
+  (1, (SELECT id FROM products WHERE name = 'The Rosewater Silk'), (SELECT id FROM product_variants WHERE product_id = (SELECT id FROM products WHERE name = 'The Rosewater Silk') AND color = 'Rosewater' LIMIT 1), 1, 8500.00),
+
+  -- Order 2 (49,000 DZD)
+  (2, (SELECT id FROM products WHERE name = 'The Oasis Emerald'), (SELECT id FROM product_variants WHERE product_id = (SELECT id FROM products WHERE name = 'The Oasis Emerald') AND color = 'Onyx Black' AND size = 'L' LIMIT 1), 2, 24500.00),
+
+  -- Order 3 (24,500 DZD)
+  (3, (SELECT id FROM products WHERE name = 'Midnight Silk Abaya'), (SELECT id FROM product_variants WHERE product_id = (SELECT id FROM products WHERE name = 'Midnight Silk Abaya') AND color = 'Midnight Black' AND size = 'S' LIMIT 1), 1, 24500.00),
+
+  -- Order 4 (26,700 DZD)
+  (4, (SELECT id FROM products WHERE name = 'Sahara Structure'), (SELECT id FROM product_variants WHERE product_id = (SELECT id FROM products WHERE name = 'Sahara Structure') AND color = 'Sand' AND size = 'M' LIMIT 1), 1, 18200.00),
+  (4, (SELECT id FROM products WHERE name = 'Silk Chiffon Hijab'), (SELECT id FROM product_variants WHERE product_id = (SELECT id FROM products WHERE name = 'Silk Chiffon Hijab') AND color = 'Ivory' LIMIT 1), 1, 8500.00),
+
+  -- Order 5 (19,500 DZD)
+  (5, (SELECT id FROM products WHERE name = 'Mist Wrap Dress'), (SELECT id FROM product_variants WHERE product_id = (SELECT id FROM products WHERE name = 'Mist Wrap Dress') AND color = 'Sage Green' AND size = 'M' LIMIT 1), 1, 19500.00),
+
+  -- Order 6 (48,000 DZD)
+  (6, (SELECT id FROM products WHERE name = 'Sahara Night Silk Abaya'), (SELECT id FROM product_variants WHERE product_id = (SELECT id FROM products WHERE name = 'Sahara Night Silk Abaya') AND color = 'Charcoal' AND size = 'L' LIMIT 1), 1, 48000.00),
+
+  -- Order 7 (40,500 DZD)
+  (7, (SELECT id FROM products WHERE name = 'Caramel Structural Bag'), (SELECT id FROM product_variants WHERE product_id = (SELECT id FROM products WHERE name = 'Caramel Structural Bag') AND color = 'Caramel' LIMIT 1), 1, 32000.00),
+  (7, (SELECT id FROM products WHERE name = 'The Rosewater Silk'), (SELECT id FROM product_variants WHERE product_id = (SELECT id FROM products WHERE name = 'The Rosewater Silk') AND color = 'Pearl White' LIMIT 1), 1, 8500.00),
+
+  -- Order 8 (18,200 DZD)
+  (8, (SELECT id FROM products WHERE name = 'Sahara Structure'), (SELECT id FROM product_variants WHERE product_id = (SELECT id FROM products WHERE name = 'Sahara Structure') AND color = 'Beige' AND size = 'S' LIMIT 1), 1, 18200.00),
+
+  -- Order 9 (56,500 DZD)
+  (9, (SELECT id FROM products WHERE name = 'Midnight Velvet'), (SELECT id FROM product_variants WHERE product_id = (SELECT id FROM products WHERE name = 'Midnight Velvet') AND color = 'Midnight Blue' AND size = 'M' LIMIT 1), 1, 28000.00),
+  (9, (SELECT id FROM products WHERE name = 'The Oasis Emerald'), (SELECT id FROM product_variants WHERE product_id = (SELECT id FROM products WHERE name = 'The Oasis Emerald') AND color = 'Champagne' AND size = 'S' LIMIT 1), 1, 24500.00),
+  (9, (SELECT id FROM products WHERE name = 'Silk Chiffon Hijab'), (SELECT id FROM product_variants WHERE product_id = (SELECT id FROM products WHERE name = 'Silk Chiffon Hijab') AND color = 'Rosewater' LIMIT 1), 1, 8500.00),
+
+  -- Order 10 (32,000 DZD)
+  (10, (SELECT id FROM products WHERE name = 'Algiers Morning Linen'), (SELECT id FROM product_variants WHERE product_id = (SELECT id FROM products WHERE name = 'Algiers Morning Linen') AND color = 'Natural Linen' AND size = 'M' LIMIT 1), 1, 32000.00),
+
+  -- Order 11 (37,000 DZD)
+  (11, (SELECT id FROM products WHERE name = 'Structured Top Handle'), (SELECT id FROM product_variants WHERE product_id = (SELECT id FROM products WHERE name = 'Structured Top Handle') AND color = 'Burgundy' LIMIT 1), 1, 32000.00),
+  (11, (SELECT id FROM products WHERE name = 'Silk Chiffon Hijab'), (SELECT id FROM product_variants WHERE product_id = (SELECT id FROM products WHERE name = 'Silk Chiffon Hijab') AND color = 'Olive' LIMIT 1), 1, 8500.00),
+
+  -- Order 12 (25,300 DZD)
+  (12, (SELECT id FROM products WHERE name = 'Rose Dawn'), (SELECT id FROM product_variants WHERE product_id = (SELECT id FROM products WHERE name = 'Rose Dawn') AND color = 'Dusty Rose' AND size = 'S' LIMIT 1), 1, 16800.00),
+  (12, (SELECT id FROM products WHERE name = 'The Rosewater Silk'), (SELECT id FROM product_variants WHERE product_id = (SELECT id FROM products WHERE name = 'The Rosewater Silk') AND color = 'Pale Peach' LIMIT 1), 1, 8500.00),
+
+  -- Order 13 (8,500 DZD)
+  (13, (SELECT id FROM products WHERE name = 'The Rosewater Silk'), (SELECT id FROM product_variants WHERE product_id = (SELECT id FROM products WHERE name = 'The Rosewater Silk') AND color = 'Rosewater' LIMIT 1), 1, 8500.00),
+
+  -- Order 14 (42,700 DZD)
+  (14, (SELECT id FROM products WHERE name = 'Noir Signature Abaya'), (SELECT id FROM product_variants WHERE product_id = (SELECT id FROM products WHERE name = 'Noir Signature Abaya') AND color = 'Jet Black' AND size = 'L' LIMIT 1), 1, 24000.00),
+  (14, (SELECT id FROM products WHERE name = 'Sahara Structure'), (SELECT id FROM product_variants WHERE product_id = (SELECT id FROM products WHERE name = 'Sahara Structure') AND color = 'Terracotta' AND size = 'XL' LIMIT 1), 1, 18200.00),
+
+  -- Order 15 (16,800 DZD)
+  (15, (SELECT id FROM products WHERE name = 'Rose Dawn'), (SELECT id FROM product_variants WHERE product_id = (SELECT id FROM products WHERE name = 'Rose Dawn') AND color = 'Ivory' AND size = 'M' LIMIT 1), 1, 16800.00);

@@ -41,7 +41,11 @@ async function run() {
       console.log(` -> Executing statement ${i + 1}/${statements.length}...`);
       await sql.query(stmt);
     }
-    console.log('✅ Seed complete!');
+    const [{ count: pCount }] = await sql`SELECT count(*) FROM products`;
+    const [{ count: vCount }] = await sql`SELECT count(*) FROM product_variants`;
+    const [{ count: oCount }] = await sql`SELECT count(*) FROM orders`;
+    const [{ count: oiCount }] = await sql`SELECT count(*) FROM order_items`;
+    console.log(`✅ Seed complete! Summary: ${pCount} products, ${vCount} variants, ${oCount} orders, ${oiCount} order items.`);
   } catch (err) {
     console.error('❌ Seed error:', err);
     process.exit(1);
